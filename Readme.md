@@ -1,18 +1,25 @@
-# SQL Procedure Loop: PostgreSQL vs Snowflake
+# SQL Procedural Loops & Optimization
 
-## 📌 Project Overview
-This repository contains a solution for iterative data processing across two different database management systems. 
-**The Goal:** Write a script that iterates through a predefined set of dates (a static dataset) and sequentially calls a stored procedure for each row, passing the required parameters.
+## Project Overview
+This project demonstrates advanced SQL procedural programming by refactoring a hardcoded sequence of consecutive stored procedure calls (`CALL procedure(...)`) with varying timestamps into an optimized, dynamic, and transaction-safe loop. Solutions are provided for both **PostgreSQL** and **Snowflake**.
 
-## 🛠 Tech Stack
-* **PostgreSQL** (PL/pgSQL)
-* **Snowflake** (Snowflake Scripting)
+## Files in this Project
+* `postgres_solution.sql` - PL/pgSQL implementation using `RECORD` types.
+* `snowflake_solution.sql` - Snowflake Scripting implementation featuring both `CURSOR` and `RESULTSET` approaches.
 
-## 📁 Repository Structure
-* `postgres_solution.sql` — The classic implementation of a loop using `FOR ... LOOP` within an anonymous `DO $$` block. It includes real-time log output using `RAISE NOTICE`.
-* `snowflake_solution.sql` — The cloud-native implementation using an `EXECUTE IMMEDIATE` block and an explicit `CURSOR`.
+## Key Engineering Concepts Demonstrated
 
-## 💡 Key Engineering Patterns Applied
-1. **Database Dialect Adaptation:** The solution addresses and solves the architectural differences between traditional relational databases (Postgres) and cloud data warehouses (Snowflake).
-2. **Advanced Cursor Handling:** In Snowflake, an explicit cursor combined with variable unpacking (`:=`) was implemented to bypass the limitation of passing multi-column record fields directly into procedures.
-3. **Enterprise DWH Logging:** The Snowflake script automatically creates an audit table (`execution_log`) and records every loop step using `INSERT` statements, ensuring full process traceability.
+### 1. Separation of Data and Logic
+Removed hardcoded values and `UNION ALL` statements from the procedure body. The dataset of varying intervals and timestamps is now stored in a dedicated configuration table (`test_2_params`). The procedure logic is entirely decoupled from the data, making it highly scalable — new dates can be processed simply by inserting rows into the table without altering the SQL code.
+
+### 2. Transactional Safety (Rollback Protection)
+Addressed the critical risk of logging execution states directly to a physical database table (`INSERT INTO execution_log`). If a row fails during the loop, a database `ROLLBACK` would erase all previous log entries within that transaction. 
+**Solution:** The logs are captured using the `INTO` keyword and appended to an in-memory `ARRAY`. This ensures logging integrity and guarantees the log history is preserved regardless of the database's transactional state.
+
+### 3. Snowflake Advanced Memory Management
+Implemented two distinct versions in Snowflake to showcase different memory utilization strategies:
+* **Cursor Version:** Uses traditional, row-by-row pointer iteration. This approach is highly memory-efficient and safe for processing massive datasets where loading everything into RAM is not feasible.
+* **ResultSet Version:** Materializes the entire query result in-memory before iteration. This approach avoids keeping a database cursor open and executes significantly faster for smaller configuration tables.
+
+### 4. PostgreSQL (PL/pgSQL) Dynamic Execution
+Utilized `RECORD` types and a `FOR ... IN SELECT` loop to dynamically iterate through the parameter table, seamlessly passing row attributes as arguments to the base procedure.
